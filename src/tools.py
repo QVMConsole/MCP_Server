@@ -5,8 +5,10 @@ from loguru import logger
 
 try:
     from .client import QVMConsoleClient, QVMConsoleAPIError
+    from .vnc_controller import VNCController
 except ImportError:
     from client import QVMConsoleClient, QVMConsoleAPIError
+    from vnc_controller import VNCController
 
 
 class QVMConsoleTools:
@@ -15,6 +17,7 @@ class QVMConsoleTools:
     def __init__(self):
         """初始化工具集"""
         self.client = QVMConsoleClient()
+        self.vnc = VNCController(self.client)
 
     async def list_templates(self) -> str:
         """
@@ -972,3 +975,241 @@ class QVMConsoleTools:
         except QVMConsoleAPIError as e:
             logger.error(f"获取监控数据失败: {e}")
             return f"❌ 获取监控数据失败: {str(e)}"
+
+    async def vnc_screenshot(self, vm_name: str) -> str:
+        """
+        截取虚拟机 VNC 画面
+
+        Args:
+            vm_name: 虚拟机名称
+
+        Returns:
+            base64 编码的 PNG 图像（MCP 协议会自动显示为图片）
+        """
+        try:
+            logger.info(f"开始截取 VNC 画面: {vm_name}")
+            
+            # 截图
+            img_base64 = await self.vnc.screenshot(vm_name)
+            
+            # 返回格式化的响应（MCP 会自动识别 base64 图像）
+            return f"✅ VNC 截图成功: {vm_name}\n\n![VNC Screenshot](data:image/png;base64,{img_base64})"
+
+        except Exception as e:
+            logger.error(f"VNC 截图失败: {e}")
+            return f"❌ VNC 截图失败: {str(e)}\n\n提示: 请确保虚拟机已开启 VNC 并处于运行状态"
+
+    async def vnc_click(self, vm_name: str, x: int, y: int, button: str = "left") -> str:
+        """
+        在 VNC 画面上点击鼠标
+
+        Args:
+            vm_name: 虚拟机名称
+            x: 横坐标（像素）
+            y: 纵坐标（像素）
+            button: 鼠标按键 (left/right/middle)，默认 left
+
+        Returns:
+            操作结果信息
+        """
+        try:
+            await self.vnc.click(vm_name, x, y, button)
+            
+            response = f"✅ VNC 鼠标点击成功: {vm_name}\n\n"
+            response += f"- 坐标: ({x}, {y})\n"
+            response += f"- 按键: {button}\n"
+            
+            return response
+
+        except Exception as e:
+            logger.error(f"VNC 点击失败: {e}")
+            return f"❌ VNC 点击失败: {str(e)}"
+
+    async def vnc_type(self, vm_name: str, text: str) -> str:
+        """
+        在 VNC 中输入文本
+
+        Args:
+            vm_name: 虚拟机名称
+            text: 要输入的文本
+
+        Returns:
+            操作结果信息
+        """
+        try:
+            await self.vnc.type_text(vm_name, text)
+            
+            response = f"✅ VNC 文本输入成功: {vm_name}\n\n"
+            response += f"- 文本长度: {len(text)} 个字符\n"
+            response += f"- 内容预览: {text[:50]}{'...' if len(text) > 50 else ''}\n"
+            
+            return response
+
+        except Exception as e:
+            logger.error(f"VNC 输入失败: {e}")
+            return f"❌ VNC 输入失败: {str(e)}"
+
+    async def vnc_key(self, vm_name: str, key: str) -> str:
+        """
+        在 VNC 中按下特殊按键
+
+        Args:
+            vm_name: 虚拟机名称
+            key: 按键名称，支持：
+                 - enter (回车)
+                 - esc (退出键)
+                 - tab (制表键)
+                 - backspace (退格)
+                 - delete (删除)
+                 - up/down/left/right (方向键)
+                 - space (空格)
+                 - ctrl/alt/shift (功能键)
+                 - f1-f12 (功能键)
+
+        Returns:
+            操作结果信息
+        """
+        try:
+            await self.vnc.press_key(vm_name, key)
+            
+            response = f"✅ VNC 按键成功: {vm_name}\n\n"
+            response += f"- 按键: {key}\n"
+            
+            return response
+
+        except Exception as e:
+            logger.error(f"VNC 按键失败: {e}")
+            return f"❌ VNC 按键失败: {str(e)}"
+
+    async def vnc_move(self, vm_name: str, x: int, y: int) -> str:
+        """
+        在 VNC 中移动鼠标
+
+        Args:
+            vm_name: 虚拟机名称
+            x: 横坐标（像素）
+            y: 纵坐标（像素）
+
+        Returns:
+            操作结果信息
+        """
+        try:
+            await self.vnc.mouse_move(vm_name, x, y)
+            
+            response = f"✅ VNC 鼠标移动成功: {vm_name}\n\n"
+            response += f"- 目标坐标: ({x}, {y})\n"
+            
+            return response
+
+        except Exception as e:
+            logger.error(f"VNC 鼠标移动失败: {e}")
+            return f"❌ VNC 鼠标移动失败: {str(e)}"
+
+    async def vnc_enable(self, vm_name: str, password: Optional[str] = None) -> str:
+        """
+        开启虚拟机 VNC
+
+        Args:
+            vm_name: 虚拟机名称
+            password: VNC 密码（可选，不填则无密码）
+
+        Returns:
+            操作结果信息
+        """
+        try:
+            await self.client.enable_vnc(vm_name, password)
+            
+            response = f"✅ VNC 已开启: {vm_name}\n\n"
+            if password:
+                response += f"- 密码: {password}\n"
+            else:
+                response += f"- 密码: 无（直接连接）\n"
+            response += f"\n💡 提示: VNC 默认仅本地访问 (127.0.0.1)\n"
+            response += f"   如需远程访问，请使用 vnc_expose 工具暴露到外网\n"
+            
+            return response
+
+        except QVMConsoleAPIError as e:
+            logger.error(f"开启 VNC 失败: {e}")
+            return f"❌ 开启 VNC 失败: {str(e)}"
+
+    async def vnc_expose(self, vm_name: str, expose: bool = True) -> str:
+        """
+        切换 VNC 对外暴露状态
+
+        Args:
+            vm_name: 虚拟机名称
+            expose: True=对外暴露(0.0.0.0)，False=仅本地(127.0.0.1)
+
+        Returns:
+            操作结果信息
+        """
+        try:
+            await self.client.expose_vnc(vm_name, expose)
+            
+            if expose:
+                response = f"✅ VNC 已对外暴露: {vm_name}\n\n"
+                response += f"- 监听地址: 0.0.0.0（所有网络接口）\n"
+                response += f"- 可以从远程访问\n"
+                response += f"\n⚠️ 安全提示:\n"
+                response += f"   - 建议设置 VNC 密码保护\n"
+                response += f"   - 注意防火墙配置\n"
+                response += f"   - 使用完毕后建议关闭暴露\n"
+            else:
+                response = f"✅ VNC 已关闭对外暴露: {vm_name}\n\n"
+                response += f"- 监听地址: 127.0.0.1（仅本地）\n"
+                response += f"- 仅宿主机可访问\n"
+            
+            return response
+
+        except QVMConsoleAPIError as e:
+            logger.error(f"切换 VNC 暴露状态失败: {e}")
+            return f"❌ 切换 VNC 暴露状态失败: {str(e)}"
+
+    async def vnc_status(self, vm_name: str) -> str:
+        """
+        查看虚拟机 VNC 状态
+
+        Args:
+            vm_name: 虚拟机名称
+
+        Returns:
+            VNC 状态信息
+        """
+        try:
+            status = await self.client.get_vnc_status(vm_name)
+            
+            response = f"虚拟机 VNC 状态: **{vm_name}**\n\n"
+            
+            enabled = status.get("enabled", False)
+            response += f"## 启用状态\n"
+            response += f"- VNC: {'✅ 已启用' if enabled else '❌ 未启用'}\n\n"
+            
+            if enabled:
+                response += f"## 连接信息\n"
+                port = status.get("port", "")
+                if port:
+                    response += f"- 端口: {port}\n"
+                
+                auth = status.get("auth", "")
+                has_password = status.get("has_password", False)
+                if has_password:
+                    response += f"- 认证: 需要密码\n"
+                else:
+                    response += f"- 认证: 无需密码\n"
+                
+                exposed = status.get("exposed", False)
+                if exposed:
+                    response += f"- 访问: 🌐 对外暴露\n"
+                else:
+                    response += f"- 访问: 🔒 仅本地访问\n"
+                
+                response += f"\n💡 提示: 可以使用 vnc_screenshot 截图查看画面\n"
+            else:
+                response += f"\n💡 提示: 使用 vnc_enable 开启 VNC\n"
+            
+            return response
+
+        except QVMConsoleAPIError as e:
+            logger.error(f"获取 VNC 状态失败: {e}")
+            return f"❌ 获取 VNC 状态失败: {str(e)}"

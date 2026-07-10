@@ -7,7 +7,7 @@ from loguru import logger
 
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
-from mcp.types import Tool, TextContent
+from mcp.types import Tool, TextContent, ImageContent
 
 try:
     from .config import init_config
@@ -464,6 +464,161 @@ TOOLS = [
             },
             "required": ["vm_name"]
         }
+    ),
+    Tool(
+        name="vnc_status",
+        description="查看虚拟机 VNC 状态，包括是否已启用、端口、认证方式等信息。",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "vm_name": {
+                    "type": "string",
+                    "description": "虚拟机名称"
+                }
+            },
+            "required": ["vm_name"]
+        }
+    ),
+    Tool(
+        name="vnc_enable",
+        description="开启虚拟机 VNC。开启后可以使用 vnc_screenshot 截图或其他 VNC 操作工具。",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "vm_name": {
+                    "type": "string",
+                    "description": "虚拟机名称"
+                },
+                "password": {
+                    "type": "string",
+                    "description": "VNC 密码（可选，不填则无密码保护）"
+                }
+            },
+            "required": ["vm_name"]
+        }
+    ),
+    Tool(
+        name="vnc_expose",
+        description="切换 VNC 对外暴露状态。默认 VNC 仅本地访问(127.0.0.1)，如需远程访问需要暴露到 0.0.0.0。注意：这是一个安全敏感操作。",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "vm_name": {
+                    "type": "string",
+                    "description": "虚拟机名称"
+                },
+                "expose": {
+                    "type": "boolean",
+                    "description": "True=对外暴露(0.0.0.0)，False=仅本地(127.0.0.1)，默认 True",
+                    "default": True
+                }
+            },
+            "required": ["vm_name"]
+        }
+    ),
+    Tool(
+        name="vnc_screenshot",
+        description="截取虚拟机 VNC 画面。可以看到虚拟机当前的屏幕内容。需要虚拟机已开启 VNC 并处于运行状态。",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "vm_name": {
+                    "type": "string",
+                    "description": "虚拟机名称"
+                }
+            },
+            "required": ["vm_name"]
+        }
+    ),
+    Tool(
+        name="vnc_click",
+        description="在 VNC 画面上点击鼠标。用于模拟鼠标点击操作，可以点击按钮、链接等元素。",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "vm_name": {
+                    "type": "string",
+                    "description": "虚拟机名称"
+                },
+                "x": {
+                    "type": "integer",
+                    "description": "横坐标（像素）",
+                    "minimum": 0
+                },
+                "y": {
+                    "type": "integer",
+                    "description": "纵坐标（像素）",
+                    "minimum": 0
+                },
+                "button": {
+                    "type": "string",
+                    "description": "鼠标按键：left（左键）、right（右键）、middle（中键）",
+                    "enum": ["left", "right", "middle"],
+                    "default": "left"
+                }
+            },
+            "required": ["vm_name", "x", "y"]
+        }
+    ),
+    Tool(
+        name="vnc_type",
+        description="在 VNC 中输入文本。用于在虚拟机中输入字符串，例如命令、文本内容等。",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "vm_name": {
+                    "type": "string",
+                    "description": "虚拟机名称"
+                },
+                "text": {
+                    "type": "string",
+                    "description": "要输入的文本内容"
+                }
+            },
+            "required": ["vm_name", "text"]
+        }
+    ),
+    Tool(
+        name="vnc_key",
+        description="在 VNC 中按下特殊按键。用于按下回车、ESC、方向键等特殊按键。",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "vm_name": {
+                    "type": "string",
+                    "description": "虚拟机名称"
+                },
+                "key": {
+                    "type": "string",
+                    "description": "按键名称：enter（回车）、esc（退出）、tab（制表）、backspace（退格）、delete（删除）、up/down/left/right（方向键）、space（空格）、ctrl/alt/shift（功能键）、f1-f12（功能键）"
+                }
+            },
+            "required": ["vm_name", "key"]
+        }
+    ),
+    Tool(
+        name="vnc_move",
+        description="在 VNC 中移动鼠标到指定位置。用于移动鼠标光标，通常在点击前使用。",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "vm_name": {
+                    "type": "string",
+                    "description": "虚拟机名称"
+                },
+                "x": {
+                    "type": "integer",
+                    "description": "横坐标（像素）",
+                    "minimum": 0
+                },
+                "y": {
+                    "type": "integer",
+                    "description": "纵坐标（像素）",
+                    "minimum": 0
+                }
+            },
+            "required": ["vm_name", "x", "y"]
+        }
     )
 ]
 
@@ -516,7 +671,7 @@ async def main():
             return TOOLS
 
         @server.call_tool()
-        async def call_tool(name: str, arguments: dict) -> list[TextContent]:
+        async def call_tool(name: str, arguments: dict) -> list[TextContent | ImageContent]:
             """调用工具"""
             logger.info(f"调用工具: {name}, 参数: {arguments}")
 
@@ -652,6 +807,67 @@ async def main():
                 elif name == "get_vm_stats":
                     result = await tools.get_vm_stats(
                         vm_name=arguments["vm_name"]
+                    )
+
+                elif name == "vnc_status":
+                    result = await tools.vnc_status(
+                        vm_name=arguments["vm_name"]
+                    )
+
+                elif name == "vnc_enable":
+                    result = await tools.vnc_enable(
+                        vm_name=arguments["vm_name"],
+                        password=arguments.get("password")
+                    )
+
+                elif name == "vnc_expose":
+                    result = await tools.vnc_expose(
+                        vm_name=arguments["vm_name"],
+                        expose=arguments.get("expose", True)
+                    )
+
+                elif name == "vnc_screenshot":
+                    # VNC 截图返回图片 + 文本
+                    img_base64 = await tools.vnc.screenshot(arguments["vm_name"])
+                    
+                    # 返回图片内容和文本说明
+                    return [
+                        TextContent(
+                            type="text",
+                            text=f"✅ VNC 截图成功: {arguments['vm_name']}"
+                        ),
+                        ImageContent(
+                            type="image",
+                            data=img_base64,
+                            mimeType="image/png"
+                        )
+                    ]
+
+                elif name == "vnc_click":
+                    result = await tools.vnc_click(
+                        vm_name=arguments["vm_name"],
+                        x=arguments["x"],
+                        y=arguments["y"],
+                        button=arguments.get("button", "left")
+                    )
+
+                elif name == "vnc_type":
+                    result = await tools.vnc_type(
+                        vm_name=arguments["vm_name"],
+                        text=arguments["text"]
+                    )
+
+                elif name == "vnc_key":
+                    result = await tools.vnc_key(
+                        vm_name=arguments["vm_name"],
+                        key=arguments["key"]
+                    )
+
+                elif name == "vnc_move":
+                    result = await tools.vnc_move(
+                        vm_name=arguments["vm_name"],
+                        x=arguments["x"],
+                        y=arguments["y"]
                     )
 
                 else:

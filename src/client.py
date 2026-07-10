@@ -408,3 +408,43 @@ class QVMConsoleClient:
             历史监控数据
         """
         return await self._request("GET", f"/api/vm/{vm_name}/stats/history", params={"hours": hours})
+
+    async def get_vnc_status(self, vm_name: str) -> Dict[str, Any]:
+        """
+        获取虚拟机 VNC 状态
+
+        Args:
+            vm_name: 虚拟机名称
+
+        Returns:
+            VNC 状态信息（enabled, port, auth, password, exposed 等）
+        """
+        return await self._request("GET", f"/api/vm/{vm_name}/vnc/status")
+
+    async def enable_vnc(self, vm_name: str, password: Optional[str] = None) -> Dict[str, Any]:
+        """
+        开启虚拟机 VNC
+
+        Args:
+            vm_name: 虚拟机名称
+            password: VNC 密码（可选，不填则无密码）
+
+        Returns:
+            操作结果
+        """
+        json_data = {"password": password} if password else {}
+        return await self._request("POST", f"/api/vm/{vm_name}/vnc/enable", json_data=json_data)
+
+    async def expose_vnc(self, vm_name: str, expose: bool) -> Dict[str, Any]:
+        """
+        切换 VNC 对外暴露状态
+
+        Args:
+            vm_name: 虚拟机名称
+            expose: True=对外暴露(0.0.0.0)，False=仅本地(127.0.0.1)
+
+        Returns:
+            操作结果
+        """
+        json_data = {"expose": expose}
+        return await self._request("POST", f"/api/vm/{vm_name}/vnc/expose", json_data=json_data)

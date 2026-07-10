@@ -4,11 +4,6 @@ import httpx
 from typing import Optional, Dict, Any, List
 from loguru import logger
 
-try:
-    from .config import get_config
-except ImportError:
-    from config import get_config
-
 
 class QVMConsoleAPIError(Exception):
     """QVMConsole API 错误"""
@@ -33,7 +28,11 @@ class QVMConsoleClient:
         self.api_key = config.qvmconsole["api_key"]
         self.timeout = config.qvmconsole["timeout"]
         self.verify_ssl = config.qvmconsole["verify_ssl"]
-        self.headers = {"X-API-KEY-ID": self.api_key_id, "X-API-KEY": self.api_key}
+        self.headers = {
+            "X-API-Key-ID": self.api_key_id,
+            "X-API-Key": self.api_key,
+            "Content-Type": "application/json"
+        }
         
         # 验证必需配置
         if not self.base_url or not self.api_key_id or not self.api_key:

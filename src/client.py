@@ -184,11 +184,60 @@ class QVMConsoleClient:
                 - ram: 内存大小 GB (可选)
                 - remark: 备注 (可选)
                 - autostart: 自动启动 (可选)
+                - add_disks: 新增磁盘列表 (可选)
 
         Returns:
             修改结果
         """
         return await self._request("PUT", f"/api/vm/{vm_name}", json_data=params)
+
+    async def add_disk(self, vm_name: str, size_gb: int, format: str = "qcow2", bus: str = "virtio") -> Dict[str, Any]:
+        """
+        为虚拟机添加新硬盘
+
+        Args:
+            vm_name: 虚拟机名称
+            size_gb: 磁盘大小（GB）
+            format: 磁盘格式（qcow2/raw，默认 qcow2）
+            bus: 磁盘总线（virtio/scsi/sata/ide，默认 virtio）
+
+        Returns:
+            添加结果
+        """
+        params = {
+            "size_gb": size_gb,
+            "format": format,
+            "bus": bus
+        }
+        return await self._request("POST", f"/api/vm/{vm_name}/disk", json_data=params)
+
+    async def list_disks(self, vm_name: str) -> List[Dict[str, Any]]:
+        """
+        获取虚拟机磁盘列表
+
+        Args:
+            vm_name: 虚拟机名称
+
+        Returns:
+            磁盘列表
+        """
+        data = await self._request("GET", f"/api/vm/{vm_name}/disks")
+        return data if isinstance(data, list) else []
+
+    async def resize_disk(self, vm_name: str, dev: str, size_gb: int) -> Dict[str, Any]:
+        """
+        扩容虚拟机磁盘
+
+        Args:
+            vm_name: 虚拟机名称
+            dev: 设备名称（如 vda, vdb）
+            size_gb: 新的大小（GB，必须大于当前大小）
+
+        Returns:
+            扩容结果
+        """
+        params = {"size_gb": size_gb}
+        return await self._request("POST", f"/api/vm/{vm_name}/disk/{dev}/resize", json_data=params)
 
     async def get_task_detail(self, task_id: str) -> Dict[str, Any]:
         """

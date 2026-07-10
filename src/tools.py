@@ -457,6 +457,112 @@ class QVMConsoleTools:
             logger.error(f"编辑虚拟机失败: {e}")
             return f"❌ 编辑虚拟机失败: {str(e)}"
 
+    async def add_disk(
+        self,
+        vm_name: str,
+        size_gb: int,
+        format: str = "qcow2",
+        bus: str = "virtio"
+    ) -> str:
+        """
+        为虚拟机添加新硬盘
+
+        Args:
+            vm_name: 虚拟机名称
+            size_gb: 磁盘大小（GB）
+            format: 磁盘格式（qcow2/raw）
+            bus: 磁盘总线（virtio/scsi/sata/ide）
+
+        Returns:
+            添加结果信息
+        """
+        try:
+            result = await self.client.add_disk(vm_name, size_gb, format, bus)
+            
+            response = f"✅ 硬盘添加成功: {vm_name}\n\n"
+            response += f"- 磁盘大小: {size_gb} GB\n"
+            response += f"- 磁盘格式: {format}\n"
+            response += f"- 磁盘总线: {bus}\n"
+            
+            # 如果返回了设备名称
+            if isinstance(result, dict) and "device" in result:
+                response += f"- 设备名称: {result['device']}\n"
+
+            return response
+
+        except QVMConsoleAPIError as e:
+            logger.error(f"添加硬盘失败: {e}")
+            return f"❌ 添加硬盘失败: {str(e)}"
+
+    async def list_disks(self, vm_name: str) -> str:
+        """
+        列出虚拟机的所有磁盘
+
+        Args:
+            vm_name: 虚拟机名称
+
+        Returns:
+            格式化的磁盘列表
+        """
+        try:
+            disks = await self.client.list_disks(vm_name)
+
+            if not disks:
+                return f"虚拟机 **{vm_name}** 当前没有磁盘"
+
+            response = f"虚拟机 **{vm_name}** 的磁盘列表:\n\n"
+
+            for i, disk in enumerate(disks, 1):
+                dev = disk.get("device", "未知")
+                disk_type = disk.get("type", "disk")
+                source = disk.get("source", "")
+                size_bytes = disk.get("capacity", 0)
+                size_gb = size_bytes / (1024 ** 3) if size_bytes > 0 else 0
+                bus = disk.get("bus", "未知")
+                
+                # 图标
+                icon = "💾" if disk_type == "disk" else "📀"
+                
+                response += f"{i}. {icon} **{dev}**\n"
+                response += f"   - 类型: {disk_type}\n"
+                response += f"   - 大小: {size_gb:.2f} GB\n"
+                response += f"   - 总线: {bus}\n"
+                if source:
+                    response += f"   - 文件: {source}\n"
+                response += "\n"
+
+            return response
+
+        except QVMConsoleAPIError as e:
+            logger.error(f"获取磁盘列表失败: {e}")
+            return f"❌ 获取磁盘列表失败: {str(e)}"
+
+    async def resize_disk(self, vm_name: str, dev: str, size_gb: int) -> str:
+        """
+        扩容虚拟机磁盘
+
+        Args:
+            vm_name: 虚拟机名称
+            dev: 设备名称（如 vda, vdb）
+            size_gb: 新的大小（GB）
+
+        Returns:
+            扩容结果信息
+        """
+        try:
+            await self.client.resize_disk(vm_name, dev, size_gb)
+
+            response = f"✅ 磁盘扩容成功: {vm_name}\n\n"
+            response += f"- 设备: {dev}\n"
+            response += f"- 新大小: {size_gb} GB\n"
+            response += f"\n⚠️ 提示: 扩容后需要在虚拟机内部调整分区大小才能使用新空间\n"
+
+            return response
+
+        except QVMConsoleAPIError as e:
+            logger.error(f"磁盘扩容失败: {e}")
+            return f"❌ 磁盘扩容失败: {str(e)}"
+
     async def vm_power_operation(self, vm_name: str, action: str) -> str:
         """
         虚拟机电源操作

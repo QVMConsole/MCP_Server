@@ -178,6 +178,74 @@ TOOLS = [
         }
     ),
     Tool(
+        name="add_disk",
+        description="为虚拟机添加新的数据硬盘。",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "vm_name": {
+                    "type": "string",
+                    "description": "虚拟机名称"
+                },
+                "size_gb": {
+                    "type": "integer",
+                    "description": "磁盘大小（GB）",
+                    "minimum": 1
+                },
+                "format": {
+                    "type": "string",
+                    "description": "磁盘格式：qcow2（推荐，支持快照）或 raw（性能更好）",
+                    "enum": ["qcow2", "raw"],
+                    "default": "qcow2"
+                },
+                "bus": {
+                    "type": "string",
+                    "description": "磁盘总线：virtio（推荐）、scsi、sata、ide",
+                    "enum": ["virtio", "scsi", "sata", "ide"],
+                    "default": "virtio"
+                }
+            },
+            "required": ["vm_name", "size_gb"]
+        }
+    ),
+    Tool(
+        name="list_disks",
+        description="列出虚拟机的所有磁盘信息。",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "vm_name": {
+                    "type": "string",
+                    "description": "虚拟机名称"
+                }
+            },
+            "required": ["vm_name"]
+        }
+    ),
+    Tool(
+        name="resize_disk",
+        description="扩容虚拟机磁盘（只能扩大，不能缩小）。",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "vm_name": {
+                    "type": "string",
+                    "description": "虚拟机名称"
+                },
+                "dev": {
+                    "type": "string",
+                    "description": "设备名称，例如 vda、vdb、vdc"
+                },
+                "size_gb": {
+                    "type": "integer",
+                    "description": "新的磁盘大小（GB），必须大于当前大小",
+                    "minimum": 1
+                }
+            },
+            "required": ["vm_name", "dev", "size_gb"]
+        }
+    ),
+    Tool(
         name="vm_power_operation",
         description="虚拟机电源操作，支持启动、关机、强制关机、重启、重置等操作。",
         inputSchema={
@@ -475,6 +543,26 @@ async def main():
                         ram=arguments.get("ram"),
                         remark=arguments.get("remark"),
                         autostart=arguments.get("autostart")
+                    )
+
+                elif name == "add_disk":
+                    result = await tools.add_disk(
+                        vm_name=arguments["vm_name"],
+                        size_gb=arguments["size_gb"],
+                        format=arguments.get("format", "qcow2"),
+                        bus=arguments.get("bus", "virtio")
+                    )
+
+                elif name == "list_disks":
+                    result = await tools.list_disks(
+                        vm_name=arguments["vm_name"]
+                    )
+
+                elif name == "resize_disk":
+                    result = await tools.resize_disk(
+                        vm_name=arguments["vm_name"],
+                        dev=arguments["dev"],
+                        size_gb=arguments["size_gb"]
                     )
 
                 elif name == "vm_power_operation":

@@ -118,7 +118,47 @@ description: "Manages QVMConsole virtual machines via MCP protocol. Invoke when 
 ### 7. edit_vm
 编辑虚拟机配置。
 
-### 8. vm_power_operation
+### 8. add_disk
+为虚拟机添加新的数据硬盘。
+
+**必需参数**：
+- `vm_name`: 虚拟机名称
+- `size_gb`: 磁盘大小（GB）
+
+**可选参数**：
+- `format`: 磁盘格式（qcow2/raw，默认 qcow2）
+- `bus`: 磁盘总线（virtio/scsi/sata/ide，默认 virtio）
+
+**磁盘格式说明**：
+- `qcow2`: 推荐，支持快照和压缩
+- `raw`: 性能更好，但占用空间更多
+
+**示例**：
+```
+为虚拟机 test-vm 添加一个 100GB 的数据盘
+给 test-vm 增加 50GB 硬盘
+```
+
+### 9. list_disks
+列出虚拟机的所有磁盘信息。
+
+**必需参数**：
+- `vm_name`: 虚拟机名称
+
+### 10. resize_disk
+扩容虚拟机磁盘（只能扩大，不能缩小）。
+
+**必需参数**：
+- `vm_name`: 虚拟机名称
+- `dev`: 设备名称（如 vda, vdb）
+- `size_gb`: 新的磁盘大小（GB）
+
+**示例**：
+```
+将 test-vm 的 vdb 磁盘扩容到 200GB
+```
+
+### 11. vm_power_operation
 虚拟机电源操作。
 
 **必需参数**：
@@ -139,13 +179,13 @@ description: "Manages QVMConsole virtual machines via MCP protocol. Invoke when 
 重启虚拟机 test-vm
 ```
 
-### 9. list_snapshots
+### 12. list_snapshots
 列出虚拟机的所有快照及配额信息。
 
 **必需参数**：
 - `vm_name`: 虚拟机名称
 
-### 10. create_snapshot
+### 13. create_snapshot
 创建虚拟机快照。
 
 **必需参数**：
@@ -163,7 +203,7 @@ description: "Manages QVMConsole virtual machines via MCP protocol. Invoke when 
 创建包含内存状态的快照
 ```
 
-### 11. revert_snapshot
+### 14. revert_snapshot
 恢复虚拟机到指定快照的状态。
 
 **警告**：这将丢失快照之后的所有数据变更。
@@ -172,20 +212,20 @@ description: "Manages QVMConsole virtual machines via MCP protocol. Invoke when 
 - `vm_name`: 虚拟机名称
 - `snapshot_name`: 快照名称
 
-### 12. delete_snapshot
+### 15. delete_snapshot
 删除虚拟机快照。
 
 **必需参数**：
 - `vm_name`: 虚拟机名称
 - `snapshot_name`: 快照名称
 
-### 13. list_vm_schedules
+### 16. list_vm_schedules
 列出虚拟机的所有定时任务。
 
 **必需参数**：
 - `vm_name`: 虚拟机名称
 
-### 14. create_vm_schedule
+### 17. create_vm_schedule
 创建虚拟机定时任务。
 
 **必需参数**：
@@ -238,14 +278,14 @@ create_vm_schedule(
 )
 ```
 
-### 15. delete_vm_schedule
+### 18. delete_vm_schedule
 删除虚拟机定时任务。
 
 **必需参数**：
 - `vm_name`: 虚拟机名称
 - `schedule_id`: 定时任务 ID
 
-### 16. get_vm_stats
+### 19. get_vm_stats
 获取虚拟机实时监控数据。
 
 **必需参数**：
@@ -577,14 +617,20 @@ ssh ubuntu@192.168.1.100
 - 定时任务
 - 虚拟机监控
 - CPU/内存使用率
+- 添加硬盘/扩容磁盘
 
 ---
 
-**版本**: 2.2  
+**版本**: 2.3  
 **最后更新**: 2026-07-10  
 **兼容 MCP 版本**: 0.1.0+
 
 ## 更新日志
+
+### v2.3 (2026-07-10)
+- ✅ 新增磁盘管理功能（添加/列出/扩容硬盘）
+- 📝 完善磁盘管理相关文档
+- ⚠️ 出于安全考虑，不提供删除磁盘功能
 
 ### v2.2 (2026-07-10)
 - 🔧 修复存储池API问题（使用 `/api/storage-pool/vm-targets` 获取虚拟机可用存储位置）

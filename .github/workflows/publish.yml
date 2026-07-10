@@ -7,16 +7,6 @@ on:
         description: '版本号 (例如: 0.1.0, 0.2.0, 1.0.0)'
         required: true
         type: string
-      release_type:
-        description: '发布类型'
-        required: true
-        type: choice
-        options:
-          - patch  # 补丁版本 (0.1.0 -> 0.1.1)
-          - minor  # 次要版本 (0.1.0 -> 0.2.0)
-          - major  # 主要版本 (0.1.0 -> 1.0.0)
-          - custom # 自定义版本号
-        default: 'patch'
 
 jobs:
   publish:
@@ -43,59 +33,36 @@ jobs:
         with:
           python-version: '3.10'
       
-      - name: 计算版本号
-        id: get_version
+      - name: 验证版本号格式
         run: |
-          if [[ "${{ github.event.inputs.release_type }}" == "custom" ]]; then
-            VERSION="${{ github.event.inputs.version }}"
-          else
-            CURRENT_VERSION=$(node -p "require('./package.json').version")
-            echo "当前版本: $CURRENT_VERSION"
-            
-            IFS='.' read -ra PARTS <<< "$CURRENT_VERSION"
-            MAJOR="${PARTS[0]}"
-            MINOR="${PARTS[1]}"
-            PATCH="${PARTS[2]}"
-            
-            case "${{ github.event.inputs.release_type }}" in
-              patch)
-                PATCH=$((PATCH + 1))
-                ;;
-              minor)
-                MINOR=$((MINOR + 1))
-                PATCH=0
-                ;;
-              major)
-                MAJOR=$((MAJOR + 1))
-                MINOR=0
-                PATCH=0
-                ;;
-            esac
-            
-            VERSION="${MAJOR}.${MINOR}.${PATCH}"
+          VERSION="${{ github.event.inputs.version }}"
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "❌ 版本号格式错误: $VERSION"
+            echo "正确格式: x.y.z (例如: 0.1.0)"
+            exit 1
           fi
-          
+          echo "✅ 版本号格式正确: $VERSION"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "📦 新版本: $VERSION"
+        id: validate_version
       
       - name: 更新 package.json 版本
         run: |
-          npm version ${{ steps.get_version.outputs.version }} --no-git-tag-version --allow-same-version
-          echo "✅ 已更新 package.json 版本为 ${{ steps.get_version.outputs.version }}"
+          npm version ${{ steps.validate_version.outputs.version }} --no-git-tag-version --allow-same-version
+          echo "✅ 已更新 package.json 版本为 ${{ steps.validate_version.outputs.version }}"
       
       - name: 提交版本更改
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add package.json
-          git commit -m "chore: bump version to ${{ steps.get_version.outputs.version }}" || echo "没有变更需要提交"
+          git commit -m "chore: bump version to ${{ steps.validate_version.outputs.version }}" || echo "没有变更需要提交"
           git push || echo "推送失败，继续执行"
       
       - name: 创建 Git 标签
         run: |
-          git tag -a "v${{ steps.get_version.outputs.version }}" -m "Release v${{ steps.get_version.outputs.version }}"
-          git push origin "v${{ steps.get_version.outputs.version }}"
-          echo "✅ 已创建标签 v${{ steps.get_version.outputs.version }}"
+          git tag -a "v${{ steps.validate_version.outputs.version }}" -m "Release v${{ steps.validate_version.outputs.version }}"
+          git push origin "v${{ steps.validate_version.outputs.version }}"
+          echo "✅ 已创建标签 v${{ steps.validate_version.outputs.version }}"
       
       - name: 安装 npm 依赖
         run: npm install --ignore-scripts
@@ -113,7 +80,7 @@ jobs:
       - name: 发布成功通知
         if: success()
         run: |
-          echo "✅ 成功发布 @qvmconsole/mcp-server@${{ steps.get_version.outputs.version }}"
+          echo "✅ 成功发布 @qvmconsole/mcp-server@${{ steps.validate_version.outputs.version }}"
           echo "📦 安装命令: npx @qvmconsole/mcp-server"
-          echo "🏷️  Git 标签: v${{ steps.get_version.outputs.version }}"
+          echo "🏷️  Git 标签: v${{ steps.validate_version.outputs.version }}"
           echo "🔗 npm 链接: https://www.npmjs.com/package/@qvmconsole/mcp-server"

@@ -239,6 +239,24 @@ class QVMConsoleClient:
         params = {"size_gb": size_gb}
         return await self._request("POST", f"/api/vm/{vm_name}/disk/{dev}/resize", json_data=params)
 
+    async def reset_vm_password(self, vm_name: str, username: str, password: str) -> Dict[str, Any]:
+        """
+        重置虚拟机用户密码
+
+        Args:
+            vm_name: 虚拟机名称
+            username: 用户名
+            password: 新密码
+
+        Returns:
+            重置结果，包含 task_id
+        """
+        params = {
+            "username": username,
+            "password": password
+        }
+        return await self._request("POST", f"/api/vm/{vm_name}/password/reset", json_data=params)
+
     async def get_task_detail(self, task_id: str) -> Dict[str, Any]:
         """
         获取任务详情

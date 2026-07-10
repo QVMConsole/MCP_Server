@@ -563,6 +563,34 @@ class QVMConsoleTools:
             logger.error(f"磁盘扩容失败: {e}")
             return f"❌ 磁盘扩容失败: {str(e)}"
 
+    async def reset_vm_password(self, vm_name: str, username: str, password: str) -> str:
+        """
+        重置虚拟机用户密码
+
+        Args:
+            vm_name: 虚拟机名称
+            username: 用户名
+            password: 新密码
+
+        Returns:
+            重置结果信息
+        """
+        try:
+            result = await self.client.reset_vm_password(vm_name, username, password)
+            task_id = result.get("task_id", "")
+
+            response = f"✅ 密码重置任务已提交: {vm_name}\n\n"
+            response += f"- 用户名: {username}\n"
+            response += f"- 新密码: {password}\n"
+            response += f"\n任务 ID: {task_id}\n"
+            response += f"\n⚠️ 提示: 密码重置需要虚拟机处于运行状态，并且支持密码重置功能\n"
+
+            return response
+
+        except QVMConsoleAPIError as e:
+            logger.error(f"重置密码失败: {e}")
+            return f"❌ 重置密码失败: {str(e)}"
+
     async def vm_power_operation(self, vm_name: str, action: str) -> str:
         """
         虚拟机电源操作

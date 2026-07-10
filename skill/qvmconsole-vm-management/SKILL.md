@@ -158,7 +158,25 @@ description: "Manages QVMConsole virtual machines via MCP protocol. Invoke when 
 将 test-vm 的 vdb 磁盘扩容到 200GB
 ```
 
-### 11. vm_power_operation
+### 11. reset_vm_password
+重置虚拟机用户密码。
+
+**必需参数**：
+- `vm_name`: 虚拟机名称
+- `username`: 用户名
+- `password`: 新密码
+
+**前提条件**：
+- 虚拟机必须处于运行状态
+- 虚拟机需要支持密码重置功能（大多数 Linux 发行版支持）
+
+**示例**：
+```
+重置 test-vm 的 root 用户密码为 NewPass@123
+修改虚拟机 web-server 的 ubuntu 用户密码
+```
+
+### 12. vm_power_operation
 虚拟机电源操作。
 
 **必需参数**：
@@ -179,7 +197,7 @@ description: "Manages QVMConsole virtual machines via MCP protocol. Invoke when 
 重启虚拟机 test-vm
 ```
 
-### 12. list_snapshots
+### 13. list_snapshots
 列出虚拟机的所有快照及配额信息。
 
 **必需参数**：
@@ -203,7 +221,7 @@ description: "Manages QVMConsole virtual machines via MCP protocol. Invoke when 
 创建包含内存状态的快照
 ```
 
-### 14. revert_snapshot
+### 15. revert_snapshot
 恢复虚拟机到指定快照的状态。
 
 **警告**：这将丢失快照之后的所有数据变更。
@@ -212,20 +230,20 @@ description: "Manages QVMConsole virtual machines via MCP protocol. Invoke when 
 - `vm_name`: 虚拟机名称
 - `snapshot_name`: 快照名称
 
-### 15. delete_snapshot
+### 16. delete_snapshot
 删除虚拟机快照。
 
 **必需参数**：
 - `vm_name`: 虚拟机名称
 - `snapshot_name`: 快照名称
 
-### 16. list_vm_schedules
+### 17. list_vm_schedules
 列出虚拟机的所有定时任务。
 
 **必需参数**：
 - `vm_name`: 虚拟机名称
 
-### 17. create_vm_schedule
+### 18. create_vm_schedule
 创建虚拟机定时任务。
 
 **必需参数**：
@@ -278,14 +296,14 @@ create_vm_schedule(
 )
 ```
 
-### 18. delete_vm_schedule
+### 19. delete_vm_schedule
 删除虚拟机定时任务。
 
 **必需参数**：
 - `vm_name`: 虚拟机名称
 - `schedule_id`: 定时任务 ID
 
-### 19. get_vm_stats
+### 20. get_vm_stats
 获取虚拟机实时监控数据。
 
 **必需参数**：
@@ -618,14 +636,19 @@ ssh ubuntu@192.168.1.100
 - 虚拟机监控
 - CPU/内存使用率
 - 添加硬盘/扩容磁盘
+- 重置密码
 
 ---
 
-**版本**: 2.3  
+**版本**: 2.4  
 **最后更新**: 2026-07-10  
 **兼容 MCP 版本**: 0.1.0+
 
 ## 更新日志
+
+### v2.4 (2026-07-10)
+- ✅ 新增重置虚拟机密码功能
+- 📝 完善密码管理相关文档
 
 ### v2.3 (2026-07-10)
 - ✅ 新增磁盘管理功能（添加/列出/扩容硬盘）

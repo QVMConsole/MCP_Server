@@ -246,6 +246,28 @@ TOOLS = [
         }
     ),
     Tool(
+        name="reset_vm_password",
+        description="重置虚拟机用户密码。需要虚拟机处于运行状态。",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "vm_name": {
+                    "type": "string",
+                    "description": "虚拟机名称"
+                },
+                "username": {
+                    "type": "string",
+                    "description": "用户名"
+                },
+                "password": {
+                    "type": "string",
+                    "description": "新密码"
+                }
+            },
+            "required": ["vm_name", "username", "password"]
+        }
+    ),
+    Tool(
         name="vm_power_operation",
         description="虚拟机电源操作，支持启动、关机、强制关机、重启、重置等操作。",
         inputSchema={
@@ -563,6 +585,13 @@ async def main():
                         vm_name=arguments["vm_name"],
                         dev=arguments["dev"],
                         size_gb=arguments["size_gb"]
+                    )
+
+                elif name == "reset_vm_password":
+                    result = await tools.reset_vm_password(
+                        vm_name=arguments["vm_name"],
+                        username=arguments["username"],
+                        password=arguments["password"]
                     )
 
                 elif name == "vm_power_operation":

@@ -1,0 +1,17 @@
+{
+  "qvmconsole": {
+    "base_url": "http://localhost:8082",
+    "api_key_id": "your-api-key-id-here",
+    "api_key": "your-api-key-here",
+    "timeout": 30,
+    "verify_ssl": true
+  },
+  "mcp": {
+    "server_name": "qvmconsole-mcp-server",
+    "version": "0.1.0"
+  },
+  "logging": {
+    "level": "INFO",
+    "file": "logs/mcp-server.log"
+  }
+}

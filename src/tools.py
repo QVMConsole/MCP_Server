@@ -14,9 +14,14 @@ except ImportError:
 class QVMConsoleTools:
     """QVMConsole MCP 工具集"""
 
-    def __init__(self):
-        """初始化工具集"""
-        self.client = QVMConsoleClient()
+    def __init__(self, config):
+        """
+        初始化工具集
+        
+        Args:
+            config: 配置对象
+        """
+        self.client = QVMConsoleClient(config)
         self.vnc = VNCController(self.client)
 
     async def list_templates(self) -> str:

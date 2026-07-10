@@ -19,15 +19,33 @@ class QVMConsoleAPIError(Exception):
 
 
 class QVMConsoleClient:
-    """QVMConsole API 客户端"""
-
-    def __init__(self):
-        """初始化客户端"""
-        self.config = get_config()
-        self.base_url = self.config.base_url
-        self.headers = self.config.get_auth_headers()
-        self.timeout = self.config.timeout
-        self.verify_ssl = self.config.verify_ssl
+    """QVMConsole API 客户端类"""
+    
+    def __init__(self, config):
+        """
+        初始化客户端
+        
+        Args:
+            config: 配置对象
+        """
+        self.base_url = config.qvmconsole["base_url"].rstrip('/')
+        self.api_key_id = config.qvmconsole["api_key_id"]
+        self.api_key = config.qvmconsole["api_key"]
+        self.timeout = config.qvmconsole["timeout"]
+        self.verify_ssl = config.qvmconsole["verify_ssl"]
+        self.headers = {"X-API-KEY-ID": self.api_key_id, "X-API-KEY": self.api_key}
+        
+        # 验证必需配置
+        if not self.base_url or not self.api_key_id or not self.api_key:
+            raise ValueError(
+                "QVMConsole 配置缺失！\n"
+                "请通过以下方式之一提供配置：\n"
+                "1. 环境变量: QVMC_BASE_URL, QVMC_API_KEY_ID, QVMC_API_KEY\n"
+                "2. 配置文件: config/config.json\n"
+                "3. Claude Desktop 配置中的 env 字段"
+            )
+        
+        logger.info(f"🔗 连接到 QVMConsole: {self.base_url}")
 
     async def _request(
         self,

@@ -14,33 +14,75 @@
 ## 系统要求
 
 - Python 3.10+
+- Node.js 16+（使用 npx 方式）
 - 一个运行中的 QVMConsole 实例
 - 有效的 API Key（从 QVMConsole 管理面板获取）
 
 ## 安装
 
-### 1. 克隆项目
+### 方式一：通过 npx 直接使用（推荐）
+
+无需安装，直接使用：
 
 ```bash
-git clone <repo-url>
-cd QVMConsole-MCP-Server
+npx @qvmconsole/mcp-server
 ```
 
-### 2. 安装依赖
+第一次运行时会自动安装 Python 依赖。
+
+### 方式二：全局安装
+
+```bash
+npm install -g @qvmconsole/mcp-server
+qvmconsole-mcp
+```
+
+### 方式三：从源码安装
+
+#### 1. 克隆项目
+
+```bash
+git clone https://github.com/qvmconsole/qvmconsole.git
+cd qvmconsole/Code/MCP\ Server
+```
+
+#### 2. 安装依赖
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 3. 配置
+## 配置
 
-复制配置文件模板并填写您的配置：
+### 方式一：通过 Claude Desktop 配置（推荐）
+
+直接在 Claude Desktop 配置中使用 `env` 字段，无需额外配置文件：
+
+```json
+{
+  "mcpServers": {
+    "qvmconsole": {
+      "command": "npx",
+      "args": ["-y", "@qvmconsole/mcp-server"],
+      "env": {
+        "QVMC_BASE_URL": "http://your-qvmconsole-url:8082",
+        "QVMC_API_KEY_ID": "kvm_id_xxxxxxxxxxxxxxxxxx",
+        "QVMC_API_KEY": "kvm_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      }
+    }
+  }
+}
+```
+
+### 方式二：通过配置文件
+
+创建 `config/config.json` 文件：
 
 ```bash
 cp config/config.example.json config/config.json
 ```
 
-编辑 `config/config.json`，填入您的 QVMConsole 地址和 API Key：
+编辑 `config/config.json`：
 
 ```json
 {
@@ -54,12 +96,26 @@ cp config/config.example.json config/config.json
 }
 ```
 
+### 配置优先级
+
+1. **环境变量**（最高优先级）- Claude Desktop 的 `env` 字段
+2. **配置文件** - `config/config.json`
+3. **默认值**
+
 #### 获取 API Key
 
 1. 登录 QVMConsole 管理面板
 2. 进入 **个人中心** → **API Key 管理**
 3. 点击 **生成 API Key**
-4. 复制生成的 `API Key ID` 和 `API Key` 到配置文件
+4. 复制生成的 `API Key ID` 和 `API Key`
+
+### 环境变量说明
+
+- `QVMC_BASE_URL` - QVMConsole 地址（必需）
+- `QVMC_API_KEY_ID` - API Key ID（必需）
+- `QVMC_API_KEY` - API Key（必需）
+- `QVMC_TIMEOUT` - 请求超时时间（秒），默认 30
+- `QVMC_VERIFY_SSL` - 是否验证 SSL 证书，默认 true
 
 ## 使用方法
 
@@ -67,8 +123,52 @@ cp config/config.example.json config/config.json
 
 在 Claude Desktop 的配置文件中添加：
 
-**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`  
 **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+
+#### 使用 npx（推荐）
+
+```json
+{
+  "mcpServers": {
+    "qvmconsole": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@qvmconsole/mcp-server"
+      ],
+      "env": {
+        "QVMC_BASE_URL": "http://your-qvmconsole-url:8082",
+        "QVMC_API_KEY_ID": "kvm_id_xxxxxxxxxxxxxxxxxx",
+        "QVMC_API_KEY": "kvm_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      }
+    }
+  }
+}
+```
+
+**可选的环境变量：**
+- `QVMC_TIMEOUT`: 请求超时时间（秒），默认 30
+- `QVMC_VERIFY_SSL`: 是否验证 SSL 证书，默认 true
+
+#### 使用全局安装
+
+```json
+{
+  "mcpServers": {
+    "qvmconsole": {
+      "command": "qvmconsole-mcp",
+      "env": {
+        "QVMC_BASE_URL": "http://your-qvmconsole-url:8082",
+        "QVMC_API_KEY_ID": "kvm_id_xxxxxxxxxxxxxxxxxx",
+        "QVMC_API_KEY": "kvm_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      }
+    }
+  }
+}
+```
+
+#### 使用源码方式
 
 ```json
 {
@@ -76,18 +176,29 @@ cp config/config.example.json config/config.json
     "qvmconsole": {
       "command": "python",
       "args": [
-        "/path/to/QVMConsole-MCP-Server/src/server.py"
-      ]
+        "/path/to/qvmconsole/Code/MCP Server/src/server.py"
+      ],
+      "env": {
+        "QVMC_BASE_URL": "http://your-qvmconsole-url:8082",
+        "QVMC_API_KEY_ID": "kvm_id_xxxxxxxxxxxxxxxxxx",
+        "QVMC_API_KEY": "kvm_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      }
     }
   }
 }
 ```
+
+**注意**: 使用 `env` 字段配置后，不再需要单独创建 `config/config.json` 文件。
 
 重启 Claude Desktop 后即可使用。
 
 ### 直接运行测试
 
 ```bash
+# 使用 npx
+npx @qvmconsole/mcp-server
+
+# 或使用 Python
 python src/server.py
 ```
 

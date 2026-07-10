@@ -652,18 +652,29 @@ async def main():
     try:
         # 初始化配置
         config = init_config()
-        logger.info(f"配置加载成功: {config.config_path}")
+        
+        # 检查配置是否有效
+        if not config.qvmconsole["base_url"]:
+            logger.error("❌ 配置缺失，请提供 QVMConsole 连接信息")
+            logger.info("请通过以下方式之一提供配置：")
+            logger.info("1. 环境变量: QVMC_BASE_URL, QVMC_API_KEY_ID, QVMC_API_KEY")
+            logger.info("2. 配置文件: config/config.json")
+            logger.info("3. Claude Desktop 配置中的 env 字段")
+            sys.exit(1)
 
         # 设置日志
-        setup_logging(config.log_file, config.log_level)
-        logger.info(f"QVMConsole MCP Server v{config.version} 启动中...")
-        logger.info(f"连接到 QVMConsole: {config.base_url}")
+        log_file = config.logging.get("file", "logs/mcp-server.log")
+        log_level = config.logging.get("level", "INFO")
+        setup_logging(log_file, log_level)
+        
+        logger.info(f"🚀 QVMConsole MCP Server 启动中...")
+        logger.info(f"🔗 连接到 QVMConsole: {config.qvmconsole['base_url']}")
 
         # 创建 MCP Server
-        server = Server(config.server_name)
+        server = Server("qvmconsole-mcp-server")
 
         # 初始化工具集
-        tools = QVMConsoleTools()
+        tools = QVMConsoleTools(config)
 
         @server.list_tools()
         async def list_tools() -> list[Tool]:

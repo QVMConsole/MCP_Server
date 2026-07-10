@@ -1,112 +1,87 @@
-"""QVMConsole MCP Server - 配置管理模块"""
+"""配置管理模块"""
 
-import json
 import os
+import sys
+import json
 from pathlib import Path
-from typing import Optional
+from loguru import logger
 
 
 class Config:
-    """配置管理类"""
-
-    def __init__(self, config_path: Optional[str] = None):
-        """
-        初始化配置
-
-        Args:
-            config_path: 配置文件路径，默认为 config/config.json
-        """
-        if config_path is None:
-            # 默认配置文件路径
-            config_path = os.getenv("CONFIG_PATH", "config/config.json")
-
-        # 如果是相对路径，相对于当前文件所在目录的上级目录（项目根目录）
-        if not os.path.isabs(config_path):
-            # 获取当前文件所在目录的上级目录（项目根目录）
-            project_root = Path(__file__).parent.parent
-            config_path = project_root / config_path
-
-        self.config_path = Path(config_path)
-        self._load_config()
-
-    def _load_config(self):
-        """加载配置文件"""
-        if not self.config_path.exists():
-            raise FileNotFoundError(
-                f"配置文件不存在: {self.config_path}\n"
-                f"请复制 config/config.example.json 为 config/config.json 并填写正确的配置"
-            )
-
-        with open(self.config_path, 'r', encoding='utf-8') as f:
-            config_data = json.load(f)
-
-        # QVMConsole 配置
-        qvm_config = config_data.get("qvmconsole", {})
-        self.base_url = qvm_config.get("base_url", "http://localhost:8082").rstrip('/')
-        self.api_key_id = qvm_config.get("api_key_id", "")
-        self.api_key = qvm_config.get("api_key", "")
-        self.timeout = qvm_config.get("timeout", 30)
-        self.verify_ssl = qvm_config.get("verify_ssl", True)
-
-        # MCP 配置
-        mcp_config = config_data.get("mcp", {})
-        self.server_name = mcp_config.get("server_name", "qvmconsole-mcp-server")
-        self.version = mcp_config.get("version", "0.1.0")
-
-        # 日志配置
-        log_config = config_data.get("logging", {})
-        self.log_level = log_config.get("level", "INFO")
-        self.log_file = log_config.get("file", "logs/mcp-server.log")
-
-        # 验证必需配置
-        if not self.api_key_id or not self.api_key:
-            raise ValueError(
-                "API Key 配置缺失，请在配置文件中设置 api_key_id 和 api_key"
-            )
-
-    def get_auth_headers(self) -> dict:
-        """
-        获取认证请求头
-
-        Returns:
-            包含 API Key 认证信息的请求头字典
-        """
-        return {
-            "X-API-Key-ID": self.api_key_id,
-            "X-API-Key": self.api_key,
-            "Content-Type": "application/json"
+    """配置类"""
+    
+    def __init__(self):
+        self.qvmconsole = {
+            "base_url": "",
+            "api_key_id": "",
+            "api_key": "",
+            "timeout": 30,
+            "verify_ssl": True
+        }
+        self.logging = {
+            "level": "INFO",
+            "file": "logs/mcp-server.log"
         }
 
 
-# 全局配置实例
-config: Optional[Config] = None
-
-
-def init_config(config_path: Optional[str] = None) -> Config:
+def init_config() -> Config:
     """
-    初始化全局配置
-
-    Args:
-        config_path: 配置文件路径
-
-    Returns:
-        配置实例
+    初始化配置，优先级：
+    1. 环境变量
+    2. 配置文件 (config/config.json)
+    3. 默认值
     """
-    global config
-    config = Config(config_path)
-    return config
-
-
-def get_config() -> Config:
-    """
-    获取全局配置实例
-
-    Returns:
-        配置实例
-
-    Raises:
-        RuntimeError: 如果配置未初始化
-    """
-    if config is None:
-        raise RuntimeError("配置未初始化，请先调用 init_config()")
+    config = Config()
+    
+    # 1. 尝试从环境变量读取
+    env_base_url = os.getenv("QVMC_BASE_URL")
+    env_api_key_id = os.getenv("QVMC_API_KEY_ID")
+    env_api_key = os.getenv("QVMC_API_KEY")
+    
+    if env_base_url and env_api_key_id and env_api_key:
+        logger.info("✅ 从环境变量加载配置")
+        config.qvmconsole["base_url"] = env_base_url
+        config.qvmconsole["api_key_id"] = env_api_key_id
+        config.qvmconsole["api_key"] = env_api_key
+        
+        # 可选的环境变量
+        if os.getenv("QVMC_TIMEOUT"):
+            config.qvmconsole["timeout"] = int(os.getenv("QVMC_TIMEOUT"))
+        if os.getenv("QVMC_VERIFY_SSL"):
+            config.qvmconsole["verify_ssl"] = os.getenv("QVMC_VERIFY_SSL").lower() == "true"
+        
+        return config
+    
+    # 2. 尝试从配置文件读取
+    config_file = Path(__file__).parent.parent / "config" / "config.json"
+    
+    if config_file.exists():
+        try:
+            with open(config_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            
+            if "qvmconsole" in data:
+                config.qvmconsole.update(data["qvmconsole"])
+            
+            if "logging" in data:
+                config.logging.update(data["logging"])
+            
+            logger.info(f"✅ 从配置文件加载配置: {config_file}")
+            return config
+            
+        except Exception as e:
+            logger.warning(f"⚠️  读取配置文件失败: {e}")
+    
+    # 3. 检查是否有配置
+    if not config.qvmconsole["base_url"]:
+        logger.warning("⚠️  未找到配置文件，请通过环境变量或配置文件提供 QVMConsole 连接信息")
+        logger.info("环境变量:")
+        logger.info("  QVMC_BASE_URL        - QVMConsole 地址")
+        logger.info("  QVMC_API_KEY_ID      - API Key ID")
+        logger.info("  QVMC_API_KEY         - API Key")
+        logger.info("  QVMC_TIMEOUT         - 超时时间（可选，默认 30）")
+        logger.info("  QVMC_VERIFY_SSL      - 是否验证 SSL（可选，默认 true）")
+        logger.info("")
+        logger.info("或创建配置文件: config/config.json")
+    
     return config

@@ -1,0 +1,65 @@
+# 开发和测试文件
+tests/
+*.test.js
+*.spec.js
+.pytest_cache/
+__pycache__/
+
+# 虚拟环境
+venv/
+.venv/
+env/
+.env
+
+# 文档（保留 README.md）
+docs/
+*.md
+!README.md
+
+# IDE 和编辑器
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# CI/CD（保留 .github/workflows）
+.github/
+!.github/workflows/
+
+# 配置文件（保留示例配置）
+config/config.json
+.env
+.env.*
+
+# 构建产物
+dist/
+build/
+*.pyc
+*.pyo
+*.pyd
+
+# 日志
+logs/
+*.log
+
+# 临时文件
+tmp/
+temp/
+.DS_Store
+Thumbs.db
+
+# Skill 文档
+skill/
+
+# 项目特定
+QVMConsole/
+interactive_client.py
+AGENTS.md
+CHANGELOG.md
+SKILL_USAGE_GUIDE.md

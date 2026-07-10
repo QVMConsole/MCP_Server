@@ -1,0 +1,46 @@
+{
+  "name": "@qvmconsole/mcp-server",
+  "version": "0.1.0",
+  "description": "MCP Server for QVMConsole virtual machine management",
+  "main": "bin/index.js",
+  "bin": {
+    "qvmconsole-mcp": "./bin/qvmconsole-mcp.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "config",
+    "requirements.txt",
+    "pyproject.toml"
+  ],
+  "scripts": {
+    "postinstall": "node bin/install-deps.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "mcp",
+    "qvmconsole",
+    "virtual-machine",
+    "vm-management",
+    "model-context-protocol"
+  ],
+  "author": "QVMConsole Team",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/qvmconsole/qvmconsole.git",
+    "directory": "Code/MCP Server"
+  },
+  "bugs": {
+    "url": "https://github.com/qvmconsole/qvmconsole/issues"
+  },
+  "homepage": "https://github.com/qvmconsole/qvmconsole#readme",
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "os": [
+    "darwin",
+    "linux",
+    "win32"
+  ]
+}

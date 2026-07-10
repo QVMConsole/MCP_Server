@@ -1,6 +1,6 @@
 {
   "name": "@qvmconsole/mcp-server",
-  "version": "5.0.0",
+  "version": "0.1.1",
   "description": "MCP Server for QVMConsole virtual machine management",
   "main": "bin/index.js",
   "bin": {

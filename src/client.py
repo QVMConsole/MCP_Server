@@ -108,13 +108,22 @@ class QVMConsoleClient:
 
     async def list_storage_pools(self) -> List[Dict[str, Any]]:
         """
-        获取存储池列表
+        获取虚拟机可用的存储位置列表
 
         Returns:
-            存储池列表，每个存储池包含 ID、名称、可用空间等信息
+            存储位置列表,每个存储位置包含 ID、名称、可用空间等信息
         """
-        data = await self._request("GET", "/api/storage-pool/list")
+        data = await self._request("GET", "/api/storage-pool/vm-targets")
         return data if isinstance(data, list) else []
+
+    async def list_switches(self) -> Dict[str, Any]:
+        """
+        获取 VPC 交换机列表
+
+        Returns:
+            交换机列表数据
+        """
+        return await self._request("GET", "/api/vpc/switches")
 
     async def create_vm_from_template(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -133,6 +142,9 @@ class QVMConsoleClient:
                 - autostart: 是否自动启动 (可选)
                 - remark: 备注 (可选)
                 - storage_pool_id: 存储池 ID (可选，不指定则使用默认存储池)
+                - nic_model: 网卡模型 (可选，virtio/e1000e/rtl8139)
+                - switch_id: VPC 交换机 ID (可选)
+                - security_group_id: 安全组 ID (可选)
 
         Returns:
             创建结果，包含 task_id
@@ -189,3 +201,143 @@ class QVMConsoleClient:
             任务详情
         """
         return await self._request("GET", f"/api/task/{task_id}")
+
+    async def vm_power_operation(self, vm_name: str, action: str) -> Dict[str, Any]:
+        """
+        虚拟机电源操作
+
+        Args:
+            vm_name: 虚拟机名称
+            action: 操作类型 (start/shutdown/destroy/reboot/reset)
+
+        Returns:
+            操作结果
+        """
+        return await self._request("POST", f"/api/vm/{vm_name}/operate", json_data={"action": action})
+
+    async def list_snapshots(self, vm_name: str) -> Dict[str, Any]:
+        """
+        获取虚拟机快照列表
+
+        Args:
+            vm_name: 虚拟机名称
+
+        Returns:
+            快照列表数据（包含 data 和 quota 信息）
+        """
+        return await self._request("GET", f"/api/vm/{vm_name}/snapshots")
+
+    async def create_snapshot(self, vm_name: str, params: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        创建虚拟机快照
+
+        Args:
+            vm_name: 虚拟机名称
+            params: 快照参数，包含:
+                - name: 快照名称 (必填)
+                - description: 快照描述 (可选)
+                - include_memory: 是否包含内存状态 (可选，默认 false)
+                - auto_fix_nvram: 自动修复 NVRAM (可选，默认 false)
+
+        Returns:
+            创建结果，包含 task_id
+        """
+        return await self._request("POST", f"/api/vm/{vm_name}/snapshot", json_data=params)
+
+    async def revert_snapshot(self, vm_name: str, snap_name: str) -> Dict[str, Any]:
+        """
+        恢复虚拟机快照
+
+        Args:
+            vm_name: 虚拟机名称
+            snap_name: 快照名称
+
+        Returns:
+            恢复结果，包含 task_id
+        """
+        return await self._request("POST", f"/api/vm/{vm_name}/snapshot/{snap_name}/revert")
+
+    async def delete_snapshot(self, vm_name: str, snap_name: str) -> Dict[str, Any]:
+        """
+        删除虚拟机快照
+
+        Args:
+            vm_name: 虚拟机名称
+            snap_name: 快照名称
+
+        Returns:
+            删除结果，包含 task_id
+        """
+        return await self._request("DELETE", f"/api/vm/{vm_name}/snapshot/{snap_name}")
+
+    async def list_vm_schedules(self, vm_name: str) -> List[Dict[str, Any]]:
+        """
+        获取虚拟机定时任务列表
+
+        Args:
+            vm_name: 虚拟机名称
+
+        Returns:
+            定时任务列表
+        """
+        data = await self._request("GET", f"/api/vm/{vm_name}/schedules")
+        return data if isinstance(data, list) else []
+
+    async def create_vm_schedule(self, vm_name: str, params: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        创建虚拟机定时任务
+
+        Args:
+            vm_name: 虚拟机名称
+            params: 定时任务参数，包含:
+                - event_type: 事件类型 (power/vm)
+                - action: 操作类型 (start/shutdown/delete)
+                - schedule_type: 计划类型 (once/daily/weekly)
+                - run_at: 执行时间 (once 类型使用，格式: 2024-01-01 10:00:00)
+                - time_of_day: 每日执行时间 (daily/weekly 类型使用，格式: 14:30)
+                - weekdays: 星期几执行 (weekly 类型使用，1-7 表示周一到周日)
+                - timezone: 时区 (可选，默认 Asia/Shanghai)
+                - enabled: 是否启用 (可选，默认 true)
+
+        Returns:
+            创建结果
+        """
+        return await self._request("POST", f"/api/vm/{vm_name}/schedules", json_data=params)
+
+    async def delete_vm_schedule(self, vm_name: str, schedule_id: int) -> Dict[str, Any]:
+        """
+        删除虚拟机定时任务
+
+        Args:
+            vm_name: 虚拟机名称
+            schedule_id: 定时任务 ID
+
+        Returns:
+            删除结果
+        """
+        return await self._request("DELETE", f"/api/vm/{vm_name}/schedules/{schedule_id}")
+
+    async def get_vm_stats(self, vm_name: str) -> Dict[str, Any]:
+        """
+        获取虚拟机实时监控数据
+
+        Args:
+            vm_name: 虚拟机名称
+
+        Returns:
+            监控数据（CPU、内存、磁盘、网络等）
+        """
+        return await self._request("GET", f"/api/vm/{vm_name}/stats")
+
+    async def get_vm_stats_history(self, vm_name: str, hours: int = 24) -> Dict[str, Any]:
+        """
+        获取虚拟机历史监控数据
+
+        Args:
+            vm_name: 虚拟机名称
+            hours: 查询小时数（默认 24 小时）
+
+        Returns:
+            历史监控数据
+        """
+        return await self._request("GET", f"/api/vm/{vm_name}/stats/history", params={"hours": hours})

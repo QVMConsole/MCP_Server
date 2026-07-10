@@ -30,7 +30,16 @@ TOOLS = [
     ),
     Tool(
         name="list_storage_pools",
-        description="列出所有存储池及其可用空间信息。在创建虚拟机时，如果默认存储池空间不足，可以选择其他有足够空间的存储池。",
+        description="列出虚拟机可用的存储位置及其可用空间信息。创建虚拟机时，如果默认存储位置空间不足，可以选择其他有足够空间的存储位置。",
+        inputSchema={
+            "type": "object",
+            "properties": {},
+            "required": []
+        }
+    ),
+    Tool(
+        name="list_switches",
+        description="列出所有 VPC 交换机。创建虚拟机时需要指定 switch_id 才能让虚拟机有网络连接。使用此工具查看可用的交换机 ID。",
         inputSchema={
             "type": "object",
             "properties": {},
@@ -90,6 +99,19 @@ TOOLS = [
                 "storage_pool_id": {
                     "type": "string",
                     "description": "存储池 ID，不填则使用默认存储池。如果默认存储池空间不足，可以通过 list_storage_pools 查看其他可用存储池并指定此参数。"
+                },
+                "nic_model": {
+                    "type": "string",
+                    "description": "网卡模型，可选值：virtio（推荐，性能最好）、e1000e（兼容性好）、rtl8139（旧系统兼容）。不填则使用默认配置。",
+                    "enum": ["virtio", "e1000e", "rtl8139"]
+                },
+                "switch_id": {
+                    "type": "integer",
+                    "description": "VPC 交换机 ID，用于将虚拟机加入特定的 VPC 网络。不填则使用默认网络。"
+                },
+                "security_group_id": {
+                    "type": "integer",
+                    "description": "安全组 ID，用于配置虚拟机的防火墙规则。不填则使用默认安全组。"
                 }
             },
             "required": ["template_name", "vm_name", "vcpu", "ram"]
@@ -150,6 +172,204 @@ TOOLS = [
                 "autostart": {
                     "type": "boolean",
                     "description": "是否自动启动"
+                }
+            },
+            "required": ["vm_name"]
+        }
+    ),
+    Tool(
+        name="vm_power_operation",
+        description="虚拟机电源操作，支持启动、关机、强制关机、重启、重置等操作。",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "vm_name": {
+                    "type": "string",
+                    "description": "虚拟机名称"
+                },
+                "action": {
+                    "type": "string",
+                    "description": "操作类型",
+                    "enum": ["start", "shutdown", "destroy", "reboot", "reset"]
+                }
+            },
+            "required": ["vm_name", "action"]
+        }
+    ),
+    Tool(
+        name="list_snapshots",
+        description="列出虚拟机的所有快照及配额信息",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "vm_name": {
+                    "type": "string",
+                    "description": "虚拟机名称"
+                }
+            },
+            "required": ["vm_name"]
+        }
+    ),
+    Tool(
+        name="create_snapshot",
+        description="创建虚拟机快照。快照可以保存虚拟机的当前状态，便于后续恢复。",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "vm_name": {
+                    "type": "string",
+                    "description": "虚拟机名称"
+                },
+                "snapshot_name": {
+                    "type": "string",
+                    "description": "快照名称"
+                },
+                "description": {
+                    "type": "string",
+                    "description": "快照描述"
+                },
+                "include_memory": {
+                    "type": "boolean",
+                    "description": "是否包含内存状态（可以保存运行中虚拟机的完整状态）",
+                    "default": False
+                },
+                "auto_fix_nvram": {
+                    "type": "boolean",
+                    "description": "自动修复 UEFI NVRAM（UEFI 虚拟机需要开启）",
+                    "default": False
+                }
+            },
+            "required": ["vm_name", "snapshot_name"]
+        }
+    ),
+    Tool(
+        name="revert_snapshot",
+        description="恢复虚拟机到指定快照的状态。警告：这将丢失快照之后的所有数据变更。",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "vm_name": {
+                    "type": "string",
+                    "description": "虚拟机名称"
+                },
+                "snapshot_name": {
+                    "type": "string",
+                    "description": "快照名称"
+                }
+            },
+            "required": ["vm_name", "snapshot_name"]
+        }
+    ),
+    Tool(
+        name="delete_snapshot",
+        description="删除虚拟机快照",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "vm_name": {
+                    "type": "string",
+                    "description": "虚拟机名称"
+                },
+                "snapshot_name": {
+                    "type": "string",
+                    "description": "快照名称"
+                }
+            },
+            "required": ["vm_name", "snapshot_name"]
+        }
+    ),
+    Tool(
+        name="list_vm_schedules",
+        description="列出虚拟机的所有定时任务",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "vm_name": {
+                    "type": "string",
+                    "description": "虚拟机名称"
+                }
+            },
+            "required": ["vm_name"]
+        }
+    ),
+    Tool(
+        name="create_vm_schedule",
+        description="创建虚拟机定时任务，可以定时执行启动、关机、删除等操作。",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "vm_name": {
+                    "type": "string",
+                    "description": "虚拟机名称"
+                },
+                "action": {
+                    "type": "string",
+                    "description": "操作类型",
+                    "enum": ["start", "shutdown", "delete"]
+                },
+                "schedule_type": {
+                    "type": "string",
+                    "description": "计划类型：once(一次性), daily(每日), weekly(每周)",
+                    "enum": ["once", "daily", "weekly"]
+                },
+                "time_of_day": {
+                    "type": "string",
+                    "description": "每日执行时间，格式 HH:MM，例如 '02:00'（daily 和 weekly 必填）"
+                },
+                "run_at": {
+                    "type": "string",
+                    "description": "一次性执行时间，格式 'YYYY-MM-DD HH:MM:SS'，例如 '2024-12-31 23:59:00'（once 必填）"
+                },
+                "weekdays": {
+                    "type": "array",
+                    "description": "星期几执行，1-7 表示周一到周日，例如 [1,3,5] 表示周一、三、五（weekly 必填）",
+                    "items": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 7
+                    }
+                },
+                "enabled": {
+                    "type": "boolean",
+                    "description": "是否启用",
+                    "default": True
+                },
+                "timezone": {
+                    "type": "string",
+                    "description": "时区，默认 Asia/Shanghai",
+                    "default": "Asia/Shanghai"
+                }
+            },
+            "required": ["vm_name", "action", "schedule_type"]
+        }
+    ),
+    Tool(
+        name="delete_vm_schedule",
+        description="删除虚拟机定时任务",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "vm_name": {
+                    "type": "string",
+                    "description": "虚拟机名称"
+                },
+                "schedule_id": {
+                    "type": "integer",
+                    "description": "定时任务 ID"
+                }
+            },
+            "required": ["vm_name", "schedule_id"]
+        }
+    ),
+    Tool(
+        name="get_vm_stats",
+        description="获取虚拟机实时监控数据，包括 CPU、内存、磁盘 I/O、网络流量等信息。",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "vm_name": {
+                    "type": "string",
+                    "description": "虚拟机名称"
                 }
             },
             "required": ["vm_name"]
@@ -218,6 +438,9 @@ async def main():
                 elif name == "list_storage_pools":
                     result = await tools.list_storage_pools()
 
+                elif name == "list_switches":
+                    result = await tools.list_switches()
+
                 elif name == "create_vm_from_template":
                     result = await tools.create_vm_from_template(
                         template_name=arguments["template_name"],
@@ -230,7 +453,10 @@ async def main():
                         user=arguments.get("user"),
                         autostart=arguments.get("autostart", False),
                         remark=arguments.get("remark"),
-                        storage_pool_id=arguments.get("storage_pool_id")
+                        storage_pool_id=arguments.get("storage_pool_id"),
+                        nic_model=arguments.get("nic_model"),
+                        switch_id=arguments.get("switch_id"),
+                        security_group_id=arguments.get("security_group_id")
                     )
 
                 elif name == "get_vm_info":
@@ -249,6 +475,66 @@ async def main():
                         ram=arguments.get("ram"),
                         remark=arguments.get("remark"),
                         autostart=arguments.get("autostart")
+                    )
+
+                elif name == "vm_power_operation":
+                    result = await tools.vm_power_operation(
+                        vm_name=arguments["vm_name"],
+                        action=arguments["action"]
+                    )
+
+                elif name == "list_snapshots":
+                    result = await tools.list_snapshots(
+                        vm_name=arguments["vm_name"]
+                    )
+
+                elif name == "create_snapshot":
+                    result = await tools.create_snapshot(
+                        vm_name=arguments["vm_name"],
+                        snapshot_name=arguments["snapshot_name"],
+                        description=arguments.get("description"),
+                        include_memory=arguments.get("include_memory", False),
+                        auto_fix_nvram=arguments.get("auto_fix_nvram", False)
+                    )
+
+                elif name == "revert_snapshot":
+                    result = await tools.revert_snapshot(
+                        vm_name=arguments["vm_name"],
+                        snapshot_name=arguments["snapshot_name"]
+                    )
+
+                elif name == "delete_snapshot":
+                    result = await tools.delete_snapshot(
+                        vm_name=arguments["vm_name"],
+                        snapshot_name=arguments["snapshot_name"]
+                    )
+
+                elif name == "list_vm_schedules":
+                    result = await tools.list_vm_schedules(
+                        vm_name=arguments["vm_name"]
+                    )
+
+                elif name == "create_vm_schedule":
+                    result = await tools.create_vm_schedule(
+                        vm_name=arguments["vm_name"],
+                        action=arguments["action"],
+                        schedule_type=arguments["schedule_type"],
+                        time_of_day=arguments.get("time_of_day"),
+                        run_at=arguments.get("run_at"),
+                        weekdays=arguments.get("weekdays"),
+                        enabled=arguments.get("enabled", True),
+                        timezone=arguments.get("timezone", "Asia/Shanghai")
+                    )
+
+                elif name == "delete_vm_schedule":
+                    result = await tools.delete_vm_schedule(
+                        vm_name=arguments["vm_name"],
+                        schedule_id=arguments["schedule_id"]
+                    )
+
+                elif name == "get_vm_stats":
+                    result = await tools.get_vm_stats(
+                        vm_name=arguments["vm_name"]
                     )
 
                 else:

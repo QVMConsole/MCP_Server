@@ -53,52 +53,135 @@ class QVMConsoleTools:
 
     async def list_storage_pools(self) -> str:
         """
-        列出所有存储池
+        列出虚拟机可用的存储位置及可用空间
 
         Returns:
-            格式化的存储池列表字符串
+            格式化的存储位置列表信息
         """
         try:
-            pools = await self.client.list_storage_pools()
+            result = await self.client.list_storage_pools()
 
-            if not pools:
-                return "当前没有配置的存储池"
+            if not result:
+                return "❌ 没有找到可用的存储位置"
 
-            result = "可用的存储池列表:\n\n"
-            for i, pool in enumerate(pools, 1):
-                pool_id = pool.get("id", "未知")
-                display_name = pool.get("display_name", pool_id)
+            response = "=" * 60 + "\n"
+            response += "虚拟机可用存储位置\n"
+            response += "=" * 60 + "\n\n"
+
+            for i, pool in enumerate(result, 1):
+                pool_id = pool.get("id", "")
+                display_name = pool.get("display_name", pool.get("device_path", "未命名"))
+                
+                # 获取大小信息（单位：字节）
+                size_bytes = pool.get("size", 0)
+                used_bytes = pool.get("used", 0)
+                available_bytes = pool.get("available", 0)
+                
+                # 转换为 GB
+                total_gb = size_bytes / (1024 ** 3) if size_bytes > 0 else 0
+                used_gb = used_bytes / (1024 ** 3) if used_bytes > 0 else 0
+                available_gb = available_bytes / (1024 ** 3) if available_bytes > 0 else 0
+                
+                # 计算使用率
+                usage_percent = (used_bytes / size_bytes * 100) if size_bytes > 0 else 0
+                
+                # 状态判断
                 enabled = pool.get("enabled", False)
                 is_default = pool.get("is_default", False)
-                can_use = pool.get("can_use_for_vm", False)
+                vm_dir = pool.get("vm_dir", "")
                 
-                # 获取空间信息
-                total_gb = pool.get("total_gb", 0)
-                available_gb = pool.get("available_gb", 0)
-                used_percent = pool.get("used_percent", 0)
-
                 # 状态图标
-                status_icon = "✅" if (enabled and can_use) else "❌"
-                default_text = " (默认)" if is_default else ""
+                if enabled:
+                    status_icon = "✅ 可用"
+                else:
+                    status_icon = "⚠️ 已禁用"
 
-                result += f"{i}. {status_icon} **{display_name}**{default_text}\n"
-                result += f"   - ID: `{pool_id}`\n"
-                result += f"   - 总容量: {total_gb:.1f} GB\n"
-                result += f"   - 可用空间: {available_gb:.1f} GB\n"
-                result += f"   - 使用率: {used_percent:.1f}%\n"
-                result += f"   - 状态: {'已启用' if enabled else '已禁用'}\n"
-                
-                if not can_use:
-                    reason = pool.get("status_reason", "不可用")
-                    result += f"   - ⚠️ 提示: {reason}\n"
-                
-                result += "\n"
+                response += f"{i}. {display_name}"
+                if is_default:
+                    response += " ⭐ (默认)"
+                response += f" {status_icon}\n"
+                response += f"   - ID: {pool_id}\n"
+                response += f"   - 存储目录: {vm_dir}\n"
+                response += f"   - 总容量: {total_gb:.2f} GB\n"
+                response += f"   - 已使用: {used_gb:.2f} GB\n"
+                response += f"   - 可用: {available_gb:.2f} GB\n"
+                response += f"   - 使用率: {usage_percent:.1f}%\n"
+                response += "\n"
 
-            return result
+            response += "=" * 60 + "\n"
+            response += "💡 提示：创建虚拟机时使用 storage_pool_id 参数指定存储位置\n"
+            response += "   不指定则使用默认存储位置（带 ⭐ 标记的）\n"
 
-        except QVMConsoleAPIError as e:
-            logger.error(f"获取存储池列表失败: {e}")
-            return f"❌ 获取存储池列表失败: {str(e)}"
+            return response
+
+        except Exception as e:
+            return f"❌ 获取存储位置列表失败: {str(e)}"
+
+    async def list_switches(self) -> str:
+        """
+        列出所有 VPC 交换机
+
+        Returns:
+            格式化的交换机列表信息
+        """
+        try:
+            result = await self.client.list_switches()
+
+            if not result:
+                return "❌ 没有找到交换机"
+
+            response = "=" * 60 + "\n"
+            response += "VPC 交换机列表\n"
+            response += "=" * 60 + "\n\n"
+
+            default_switch = None
+            for switch in result:
+                if switch.get("is_default", False):
+                    default_switch = switch
+                    break
+
+            for i, switch in enumerate(result, 1):
+                switch_id = switch.get("id", 0)
+                name = switch.get("name", "未命名")
+                bridge = switch.get("bridge", "")
+                is_default = switch.get("is_default", False)
+
+                default_text = " ⭐ (默认)" if is_default else ""
+
+                response += f"{i}. {name}{default_text}\n"
+                response += f"   - ID: {switch_id}\n"
+                response += f"   - 网桥: {bridge}\n"
+                response += f"   - 类型: {'默认交换机' if is_default else '普通交换机'}\n"
+                response += "\n"
+
+            response += "=" * 60 + "\n"
+            response += "使用建议\n"
+            response += "=" * 60 + "\n\n"
+
+            if default_switch:
+                response += f"💡 创建虚拟机时建议使用默认交换机：\n"
+                response += f"   switch_id: {default_switch.get('id')}\n"
+                response += f"   名称: {default_switch.get('name')}\n"
+            else:
+                response += f"💡 创建虚拟机时建议使用第一个交换机：\n"
+                response += f"   switch_id: {result[0].get('id')}\n"
+                response += f"   名称: {result[0].get('name')}\n"
+
+            response += "\n示例：\n"
+            response += "create_vm_from_template(\n"
+            response += "    template_name=\"Ubuntu26.04-LTS\",\n"
+            response += "    vm_name=\"test-vm\",\n"
+            response += "    vcpu=2,\n"
+            response += "    ram=4,\n"
+            response += "    user=\"ubuntu\",\n"
+            response += "    password=\"Pass123\",\n"
+            response += f"    switch_id={default_switch.get('id') if default_switch else result[0].get('id')}  # ← 使用此交换机\n"
+            response += ")\n"
+
+            return response
+
+        except Exception as e:
+            return f"❌ 获取交换机列表失败: {str(e)}"
 
     async def create_vm_from_template(
         self,
@@ -112,7 +195,10 @@ class QVMConsoleTools:
         user: Optional[str] = None,
         autostart: bool = False,
         remark: Optional[str] = None,
-        storage_pool_id: Optional[str] = None
+        storage_pool_id: Optional[str] = None,
+        nic_model: Optional[str] = None,
+        switch_id: Optional[int] = None,
+        security_group_id: Optional[int] = None
     ) -> str:
         """
         从模板创建虚拟机
@@ -129,6 +215,9 @@ class QVMConsoleTools:
             autostart: 是否创建后自动启动
             remark: 备注信息
             storage_pool_id: 存储池 ID，不填则使用默认存储池
+            nic_model: 网卡模型（virtio/e1000e/rtl8139），不填则使用默认
+            switch_id: VPC 交换机 ID，用于 VPC 网络配置
+            security_group_id: 安全组 ID，用于防火墙规则配置
 
         Returns:
             创建结果信息
@@ -155,6 +244,12 @@ class QVMConsoleTools:
                 params["remark"] = remark
             if storage_pool_id:
                 params["storage_pool_id"] = storage_pool_id
+            if nic_model:
+                params["nic_model"] = nic_model
+            if switch_id is not None:
+                params["switch_id"] = switch_id
+            if security_group_id is not None:
+                params["security_group_id"] = security_group_id
 
             # 发送创建请求
             result = await self.client.create_vm_from_template(params)
@@ -169,6 +264,12 @@ class QVMConsoleTools:
                 response += f"- 磁盘: {disk_size} GB\n"
             if storage_pool_id:
                 response += f"- 存储池: {storage_pool_id}\n"
+            if nic_model:
+                response += f"- 网卡模型: {nic_model}\n"
+            if switch_id is not None:
+                response += f"- VPC 交换机 ID: {switch_id}\n"
+            if security_group_id is not None:
+                response += f"- 安全组 ID: {security_group_id}\n"
             if hostname:
                 response += f"- 主机名: {hostname}\n"
             if autostart:
@@ -355,3 +456,385 @@ class QVMConsoleTools:
         except QVMConsoleAPIError as e:
             logger.error(f"编辑虚拟机失败: {e}")
             return f"❌ 编辑虚拟机失败: {str(e)}"
+
+    async def vm_power_operation(self, vm_name: str, action: str) -> str:
+        """
+        虚拟机电源操作
+
+        Args:
+            vm_name: 虚拟机名称
+            action: 操作类型 (start/shutdown/destroy/reboot/reset)
+
+        Returns:
+            操作结果信息
+        """
+        try:
+            action_map = {
+                "start": "启动",
+                "shutdown": "关机",
+                "destroy": "强制关机",
+                "reboot": "重启",
+                "reset": "重置"
+            }
+
+            action_text = action_map.get(action, action)
+            result = await self.client.vm_power_operation(vm_name, action)
+
+            response = f"✅ 虚拟机 {action_text} 指令已下发: {vm_name}\n"
+            
+            # 检查是否有警告信息
+            if isinstance(result, dict) and "warning" in result:
+                response += f"\n⚠️ 提示: {result['warning']}\n"
+
+            return response
+
+        except QVMConsoleAPIError as e:
+            logger.error(f"虚拟机电源操作失败: {e}")
+            return f"❌ 虚拟机 {action_map.get(action, action)} 失败: {str(e)}"
+
+    async def list_snapshots(self, vm_name: str) -> str:
+        """
+        列出虚拟机快照
+
+        Args:
+            vm_name: 虚拟机名称
+
+        Returns:
+            格式化的快照列表
+        """
+        try:
+            result = await self.client.list_snapshots(vm_name)
+            snapshots = result.get("data", []) if isinstance(result, dict) else result
+
+            if not snapshots:
+                return f"虚拟机 **{vm_name}** 当前没有快照"
+
+            response = f"虚拟机 **{vm_name}** 的快照列表:\n\n"
+
+            for i, snap in enumerate(snapshots, 1):
+                name = snap.get("name", "未知")
+                description = snap.get("description", "")
+                created_at = snap.get("created_at", "未知")
+                state = snap.get("state", "")
+                
+                response += f"{i}. **{name}**\n"
+                if description:
+                    response += f"   - 描述: {description}\n"
+                response += f"   - 创建时间: {created_at}\n"
+                if state:
+                    response += f"   - 状态: {state}\n"
+                response += "\n"
+
+            # 显示配额信息
+            if isinstance(result, dict) and "quota" in result:
+                quota = result["quota"]
+                used = quota.get("used", 0)
+                limit = quota.get("limit", 0)
+                response += f"\n快照配额: {used}/{limit}\n"
+
+            return response
+
+        except QVMConsoleAPIError as e:
+            logger.error(f"获取快照列表失败: {e}")
+            return f"❌ 获取快照列表失败: {str(e)}"
+
+    async def create_snapshot(
+        self,
+        vm_name: str,
+        snapshot_name: str,
+        description: Optional[str] = None,
+        include_memory: bool = False,
+        auto_fix_nvram: bool = False
+    ) -> str:
+        """
+        创建虚拟机快照
+
+        Args:
+            vm_name: 虚拟机名称
+            snapshot_name: 快照名称
+            description: 快照描述
+            include_memory: 是否包含内存状态
+            auto_fix_nvram: 自动修复 NVRAM
+
+        Returns:
+            创建结果信息
+        """
+        try:
+            params = {
+                "name": snapshot_name,
+                "include_memory": include_memory,
+                "auto_fix_nvram": auto_fix_nvram
+            }
+            
+            if description:
+                params["description"] = description
+
+            result = await self.client.create_snapshot(vm_name, params)
+            task_id = result.get("task_id", "")
+
+            response = f"✅ 快照创建任务已提交: {vm_name}\n\n"
+            response += f"- 快照名称: {snapshot_name}\n"
+            if description:
+                response += f"- 描述: {description}\n"
+            response += f"- 包含内存: {'是' if include_memory else '否'}\n"
+            response += f"\n任务 ID: {task_id}\n"
+
+            return response
+
+        except QVMConsoleAPIError as e:
+            logger.error(f"创建快照失败: {e}")
+            return f"❌ 创建快照失败: {str(e)}"
+
+    async def revert_snapshot(self, vm_name: str, snapshot_name: str) -> str:
+        """
+        恢复虚拟机快照
+
+        Args:
+            vm_name: 虚拟机名称
+            snapshot_name: 快照名称
+
+        Returns:
+            恢复结果信息
+        """
+        try:
+            result = await self.client.revert_snapshot(vm_name, snapshot_name)
+            task_id = result.get("task_id", "")
+
+            response = f"✅ 快照恢复任务已提交: {vm_name}\n\n"
+            response += f"- 快照名称: {snapshot_name}\n"
+            response += f"\n任务 ID: {task_id}\n"
+            response += f"\n⚠️ 提示: 恢复快照会丢失快照之后的所有数据变更\n"
+
+            return response
+
+        except QVMConsoleAPIError as e:
+            logger.error(f"恢复快照失败: {e}")
+            return f"❌ 恢复快照失败: {str(e)}"
+
+    async def delete_snapshot(self, vm_name: str, snapshot_name: str) -> str:
+        """
+        删除虚拟机快照
+
+        Args:
+            vm_name: 虚拟机名称
+            snapshot_name: 快照名称
+
+        Returns:
+            删除结果信息
+        """
+        try:
+            result = await self.client.delete_snapshot(vm_name, snapshot_name)
+            task_id = result.get("task_id", "")
+
+            response = f"✅ 快照删除任务已提交: {vm_name}\n\n"
+            response += f"- 快照名称: {snapshot_name}\n"
+            response += f"\n任务 ID: {task_id}\n"
+
+            return response
+
+        except QVMConsoleAPIError as e:
+            logger.error(f"删除快照失败: {e}")
+            return f"❌ 删除快照失败: {str(e)}"
+
+    async def list_vm_schedules(self, vm_name: str) -> str:
+        """
+        列出虚拟机定时任务
+
+        Args:
+            vm_name: 虚拟机名称
+
+        Returns:
+            格式化的定时任务列表
+        """
+        try:
+            schedules = await self.client.list_vm_schedules(vm_name)
+
+            if not schedules:
+                return f"虚拟机 **{vm_name}** 当前没有定时任务"
+
+            response = f"虚拟机 **{vm_name}** 的定时任务列表:\n\n"
+
+            for i, schedule in enumerate(schedules, 1):
+                schedule_id = schedule.get("id", 0)
+                action = schedule.get("action", "未知")
+                cron_expr = schedule.get("cron_expr", "")
+                enabled = schedule.get("enabled", False)
+                remark = schedule.get("remark", "")
+                
+                status_icon = "✅" if enabled else "❌"
+                
+                response += f"{i}. {status_icon} ID: {schedule_id}\n"
+                response += f"   - 操作: {action}\n"
+                response += f"   - Cron 表达式: {cron_expr}\n"
+                response += f"   - 状态: {'启用' if enabled else '禁用'}\n"
+                if remark:
+                    response += f"   - 备注: {remark}\n"
+                response += "\n"
+
+            return response
+
+        except QVMConsoleAPIError as e:
+            logger.error(f"获取定时任务列表失败: {e}")
+            return f"❌ 获取定时任务列表失败: {str(e)}"
+
+    async def create_vm_schedule(
+        self,
+        vm_name: str,
+        action: str,
+        schedule_type: str,
+        time_of_day: Optional[str] = None,
+        run_at: Optional[str] = None,
+        weekdays: Optional[List[int]] = None,
+        enabled: bool = True,
+        timezone: str = "Asia/Shanghai"
+    ) -> str:
+        """
+        创建虚拟机定时任务
+
+        Args:
+            vm_name: 虚拟机名称
+            action: 操作类型 (start/shutdown/delete)
+            schedule_type: 计划类型 (once/daily/weekly)
+            time_of_day: 每日执行时间，格式 HH:MM (daily/weekly 使用)
+            run_at: 一次性执行时间，格式 YYYY-MM-DD HH:MM:SS (once 使用)
+            weekdays: 星期几执行，1-7 表示周一到周日 (weekly 使用)
+            enabled: 是否启用
+            timezone: 时区
+
+        Returns:
+            创建结果信息
+        """
+        try:
+            # 确定事件类型
+            if action in ["start", "shutdown"]:
+                event_type = "power"
+            elif action == "delete":
+                event_type = "vm"
+            else:
+                return f"❌ 不支持的操作类型: {action}，仅支持 start、shutdown、delete"
+
+            # 构建参数
+            params = {
+                "event_type": event_type,
+                "action": action,
+                "schedule_type": schedule_type,
+                "timezone": timezone,
+                "enabled": enabled
+            }
+
+            # 根据计划类型添加相应参数
+            if schedule_type == "once":
+                if not run_at:
+                    return "❌ 一次性任务必须指定 run_at 参数（执行时间）"
+                params["run_at"] = run_at
+            elif schedule_type == "daily":
+                if not time_of_day:
+                    return "❌ 每日任务必须指定 time_of_day 参数（执行时间）"
+                params["time_of_day"] = time_of_day
+            elif schedule_type == "weekly":
+                if not time_of_day:
+                    return "❌ 每周任务必须指定 time_of_day 参数（执行时间）"
+                if not weekdays:
+                    return "❌ 每周任务必须指定 weekdays 参数（星期几）"
+                params["time_of_day"] = time_of_day
+                params["weekdays"] = weekdays
+            else:
+                return f"❌ 不支持的计划类型: {schedule_type}，仅支持 once、daily、weekly"
+
+            result = await self.client.create_vm_schedule(vm_name, params)
+            schedule_id = result.get("id", 0)
+
+            response = f"✅ 定时任务已创建: {vm_name}\n\n"
+            response += f"- 任务 ID: {schedule_id}\n"
+            response += f"- 操作: {action}\n"
+            response += f"- 计划类型: {schedule_type}\n"
+            
+            if schedule_type == "once" and run_at:
+                response += f"- 执行时间: {run_at}\n"
+            elif schedule_type == "daily" and time_of_day:
+                response += f"- 每日执行时间: {time_of_day}\n"
+            elif schedule_type == "weekly" and time_of_day and weekdays:
+                weekday_names = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
+                weekday_str = "、".join([weekday_names[w-1] for w in weekdays if 1 <= w <= 7])
+                response += f"- 每周执行: {weekday_str}\n"
+                response += f"- 执行时间: {time_of_day}\n"
+            
+            response += f"- 时区: {timezone}\n"
+            response += f"- 状态: {'启用' if enabled else '禁用'}\n"
+
+            return response
+
+        except QVMConsoleAPIError as e:
+            logger.error(f"创建定时任务失败: {e}")
+            return f"❌ 创建定时任务失败: {str(e)}"
+
+    async def delete_vm_schedule(self, vm_name: str, schedule_id: int) -> str:
+        """
+        删除虚拟机定时任务
+
+        Args:
+            vm_name: 虚拟机名称
+            schedule_id: 定时任务 ID
+
+        Returns:
+            删除结果信息
+        """
+        try:
+            await self.client.delete_vm_schedule(vm_name, schedule_id)
+
+            response = f"✅ 定时任务已删除: {vm_name}\n\n"
+            response += f"- 任务 ID: {schedule_id}\n"
+
+            return response
+
+        except QVMConsoleAPIError as e:
+            logger.error(f"删除定时任务失败: {e}")
+            return f"❌ 删除定时任务失败: {str(e)}"
+
+    async def get_vm_stats(self, vm_name: str) -> str:
+        """
+        获取虚拟机实时监控数据
+
+        Args:
+            vm_name: 虚拟机名称
+
+        Returns:
+            格式化的监控数据
+        """
+        try:
+            stats = await self.client.get_vm_stats(vm_name)
+
+            response = f"虚拟机 **{vm_name}** 实时监控数据:\n\n"
+
+            # CPU 信息
+            cpu_percent = stats.get("cpu_percent", 0)
+            response += f"## CPU\n"
+            response += f"- 使用率: {cpu_percent:.1f}%\n\n"
+
+            # 内存信息
+            memory_used_mb = stats.get("memory_used_mb", 0)
+            memory_total_mb = stats.get("memory_total_mb", 0)
+            memory_percent = (memory_used_mb / memory_total_mb * 100) if memory_total_mb > 0 else 0
+            response += f"## 内存\n"
+            response += f"- 已使用: {memory_used_mb:.0f} MB / {memory_total_mb:.0f} MB\n"
+            response += f"- 使用率: {memory_percent:.1f}%\n\n"
+
+            # 磁盘信息
+            disk_read_mb = stats.get("disk_read_mb", 0)
+            disk_write_mb = stats.get("disk_write_mb", 0)
+            response += f"## 磁盘 I/O\n"
+            response += f"- 读取: {disk_read_mb:.2f} MB\n"
+            response += f"- 写入: {disk_write_mb:.2f} MB\n\n"
+
+            # 网络信息
+            net_rx_mb = stats.get("net_rx_mb", 0)
+            net_tx_mb = stats.get("net_tx_mb", 0)
+            response += f"## 网络流量\n"
+            response += f"- 接收: {net_rx_mb:.2f} MB\n"
+            response += f"- 发送: {net_tx_mb:.2f} MB\n"
+
+            return response
+
+        except QVMConsoleAPIError as e:
+            logger.error(f"获取监控数据失败: {e}")
+            return f"❌ 获取监控数据失败: {str(e)}"

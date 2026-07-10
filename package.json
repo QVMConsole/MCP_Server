@@ -28,13 +28,12 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/qvmconsole/qvmconsole.git",
-    "directory": "Code/MCP Server"
+    "url": "git+https://github.com/QVMConsole/MCP_Server.git"
   },
   "bugs": {
-    "url": "https://github.com/qvmconsole/qvmconsole/issues"
+    "url": "https://github.com/QVMConsole/MCP_Server/issues"
   },
-  "homepage": "https://github.com/qvmconsole/qvmconsole#readme",
+  "homepage": "https://github.com/QVMConsole/MCP_Server#readme",
   "engines": {
     "node": ">=16.0.0"
   },
